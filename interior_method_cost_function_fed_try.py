@@ -43,17 +43,12 @@ def calculateHessianAndGradient(xi):
     m = x2
     M = x3
     # Federico constraints
-    constraint1 = 1 / bb * sym.log(-(1 - m)) + 1 / bb * sym.log(-(m - 40)) #  1 < m < 40
-    constraint2 = 1 / bb * sym.log(-(N - 2000)) + 1 / bb * sym.log(-(400 - N)) # 400 < N < 2000
-    constraint3 = 1 / bb * sym.log(-(2 - M)) + 1 / bb * sym.log(-(M - 64)) # 2 < M < 64
-    constraint4 = 1 / bb * sym.log(-((m * (N / eta) * (sym.log(M, 2)) * (0.2 * sym.exp(-((3 * 100) / (2 * (M - 1))))) ** (1 / R_c)) - 0.1))
-    constraint5 = sym.log(-(2-x2)) # M > 2.1
-    constraint6 = 1 / bb * sym.log(  -(sym.log(x2)+sym.log(R_n) + sym.log(x1) + sym.log(sym.log(x2,2)) + (1/R_c)*(sym.log(0.2)-(3*gamma)/(2*(x2-1))) - sym.log(p_lt) )  )
-    constraint_tull = sym.log(-(x3-70)) # m < 70
-    constraint_tull2 = sym.log(-(x2-64))# M < 64
-    constraint_tull3 = sym.log(-(x1-700)) # N < 700
-    function_without_constraint = -(sym.log(x3)+ sym.log(R_c) + sym.log(B) + sym.log(R_n) + sym.log(x1) + sym.log(sym.log(x2, 2)) - sym.log(x3*(1+p_c)*x1 + B*(t_oh + t_d)))
-    function = t*( function_without_constraint ) - (constraint1+constraint2+constraint3+constraint4) 
+
+    constraint1 = sym.log(-(-x1))
+    constraint2 = sym.log(-(-x2))
+    constraint3 = sym.log(-(-x3))
+    function_without_constraint = x1*sym.log(x1)+x2*sym.log(x2)+x3*sym.log(x3)
+    function = t*( function_without_constraint ) - (constraint1+constraint2+constraint3) 
     
     der_x1 = function.diff(x1)
     der_x2 = function.diff(x2)
@@ -97,7 +92,7 @@ def calculateHessianAndGradient(xi):
 
 
 
-t = 0.1
+t = 0.0001
 epsilon = 1e-3
 
 n = 3 #dimensions 

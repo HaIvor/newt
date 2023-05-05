@@ -14,6 +14,11 @@ N = optimizable - Subcarriers
 M = optimizable - Modulation order
 m = optimizable - Symbols per packet
 """
+
+# backtracking
+alpha = 0.01
+beta = 0.5
+
 def calculateHessianAndGradient(xi):
     R_c = 0.5 # Coding rate
     B = 12000 # Bandwidth
@@ -49,8 +54,13 @@ def calculateHessianAndGradient(xi):
     constraint_tull = sym.log(-(x3-70)) # m < 70
     constraint_tull2 = sym.log(-(x2-64))# M < 64
     constraint_tull3 = sym.log(-(x1-700)) # N < 700
-    #function = t*( -(sym.log(x3)+ sym.log(R_c) + sym.log(B) + sym.log(R_n) + sym.log(x1) + sym.log(sym.log(x2, 2)) - sym.log(x3*(1+p_c)*x1 + B*(t_oh + t_d))))
+    #function = ( -(sym.log(x3)+ sym.log(R_c) + sym.log(B) + sym.log(R_n) + sym.log(x1) + sym.log(sym.log(x2, 2)) - sym.log(x3*(1+p_c)*x1 + B*(t_oh + t_d)))) - (constraint1+constraint2+constraint3+constraint4)
+    #function_without_constraint = ( -(sym.log(x3)+ sym.log(R_c) + sym.log(B) + sym.log(R_n) + sym.log(x1) + sym.log(sym.log(x2, 2)) - sym.log(x3*(1+p_c)*x1 + B*(t_oh + t_d))))
+    
     function = 5*x1**2- 2*x1 + 3*x2**2 - 5*x2 + 8*x3**2 - 6*x3 
+    function_without_constraint = function
+    #function = x1*sym.log(x1)+x2*sym.log(x2)+x3*sym.log(x3)
+    #function = -sym.exp(-x1**2)-sym.exp(-x2**2)-sym.exp(-x3**2)+4
 
     der_x1 = function.diff(x1)
     der_x2 = function.diff(x2)
@@ -79,24 +89,65 @@ def calculateHessianAndGradient(xi):
         [der_crossx1x3_values, der_crossx2x3_values, der_x3x3_values]
     ], dtype=np.float32)
 
-    
-    
-    return gradient_values, hessian_values
+    cost_function_values = function_without_constraint.evalf(subs={x1: xi[0][0], x2: xi[1][0], x3: xi[2][0]})
 
+    return gradient_values, hessian_values, cost_function_values
+
+def backtracking(xi):
+    x1, x2, x3 = sym.symbols('x1 x2 x3')
+    function = 5*x1**2- 2*x1 + 3*x2**2 - 5*x2 + 8*x3**2 - 6*x3 
+    #function = -sym.exp(-x1**2)-sym.exp(-x2**2)-sym.exp(-x3**2)+4
+    der_x1 = function.diff(x1)
+    der_x2 = function.diff(x2)
+    der_x3 = function.diff(x3)
+
+    der_x1_values = function.diff(x1).evalf(subs={x1: xi[0][0], x2: xi[1][0], x3: xi[2][0]})
+    der_x2_values = function.diff(x2).evalf(subs={x1: xi[0][0], x2: xi[1][0], x3: xi[2][0]})
+    der_x3_values = function.diff(x3).evalf(subs={x1: xi[0][0], x2: xi[1][0], x3: xi[2][0]})
+
+    gradient_values = np.array([
+        [der_x1_values], 
+        [der_x2_values], 
+        [der_x3_values]
+    ], dtype=np.float32)
+
+    der_x1x1_values = der_x1.diff(x1).evalf(subs={x1: xi[0][0], x2: xi[1][0], x3: xi[2][0]})
+    der_crossx1x2_values = der_x1.diff(x2).evalf(subs={x1: xi[0][0], x2: xi[1][0], x3: xi[2][0]})
+    der_x2x2_values = der_x2.diff(x2).evalf(subs={x1: xi[0][0], x2: xi[1][0], x3: xi[2][0]})
+    der_crossx1x3_values = der_x1.diff(x3).evalf(subs={x1: xi[0][0], x2: xi[1][0], x3: xi[2][0]})
+    der_x3x3_values = der_x3.diff(x3).evalf(subs={x1: xi[0][0], x2: xi[1][0], x3: xi[2][0]})
+    der_crossx2x3_values = der_x2.diff(x3).evalf(subs={x1: xi[0][0], x2: xi[1][0], x3: xi[2][0]})
+
+    hessian_values = np.array([
+        [der_x1x1_values, der_crossx1x2_values, der_crossx1x3_values],
+        [der_crossx1x2_values, der_x2x2_values, der_crossx2x3_values],
+        [der_crossx1x3_values, der_crossx2x3_values, der_x3x3_values]
+    ], dtype=np.float32)
+    p = 1
+    deltax = -1.0*(np.linalg.inv(hessian_values)@gradient_values)
+    xi_t_deltax = xi + p*deltax 
+    function_xi_t_deltax = function.evalf(subs={x1: xi_t_deltax[0][0], x2: xi_t_deltax[1][0], x3: xi_t_deltax[2][0]})
+    function_xi = function.evalf(subs={x1: xi[0][0], x2: xi[1][0], x3: xi[2][0]})
+
+    while function_xi_t_deltax > (function_xi + alpha*p*np.transpose(gradient_values)@deltax):
+        xi_t_deltax = xi + p*deltax
+        function_xi_t_deltax = function.evalf(subs={x1: xi_t_deltax[0][0], x2: xi_t_deltax[1][0], x3: xi_t_deltax[2][0]})
+        p = p*beta
+    return p
 n = 3 # dimension of hessian / gradient. ex. 3x3 and 3x1
 
 out_neigh = 1 # For the time being this is not calculated, but set beforehand
 c = 1E-8
-epsilon = 1 # just to give value temporary
+epsilon = 0.01 # just to give value temporary
 
 # ------Initialization------
 
 
 # Initial estimate for the global optimization. Arbitrary values, recommended by Emil
 xi = np.array([
-    [14],
-    [20],
-    [9]
+    [4],
+    [2],
+    [6]
 ])
 
 yi, gi, gi_old = np.zeros((n, 1)), np.zeros((n, 1)), np.zeros((n, 1)) # if n=3 -> they are 3x1 zero matrices
@@ -114,9 +165,9 @@ rhoi_z = np.zeros((n,n))
 # ------Initialization 2------
 
 xj = np.array([ 
-    [32], # N_start
-    [13], #M_start
-    [20] # m_start
+    [5], # N_start
+    [1], #M_start
+    [4] # m_start
 ]) 
 
 yj, gj, gj_old = np.zeros((n, 1)), np.zeros((n, 1)), np.zeros((n, 1)) # if n=3 -> they are 3x1 zero matrices
@@ -142,9 +193,10 @@ m_list = np.array(xi[2])
 N_list2 = np.array(xj[0])
 M_list2 = np.array(xj[1])
 m_list2 = np.array(xj[2])
+function1_list = np.array([])
 
 i = 1
-iterations = 20 # For plotting the evolution of xi (N, M, m)
+iterations = 100 # For plotting the evolution of xi (N, M, m)
 while i < iterations: 
     
 # ------Data transmission-------
@@ -198,19 +250,21 @@ while i < iterations:
 
         # if (np.abs(np.linalg.eigvals(zi)) < c).all():
         #     zi = c*np.identity(n)
-
-        xi = (1-epsilon)*xi + epsilon*np.linalg.inv(zi)@yi # Newton-Raphson Consensus
+        p = backtracking(xi)
+        print("p: ", p)
+        xi = (1-p)*xi + p*np.linalg.inv(zi)@yi # Newton-Raphson Consensus
 
         # For plotting the values...
         N_list = np.append(N_list, xi[0][0])
         M_list = np.append(M_list, xi[1][0])
         m_list = np.append(m_list, xi[2][0])
         
+        
 
         gi_old = gi
         hi_old = hi
-        gradient = calculateHessianAndGradient(xi)[0]
-        hi = calculateHessianAndGradient(xi)[1]
+        gradient, hi, cost_value = calculateHessianAndGradient(xi)
+        function1_list = np.append(function1_list, cost_value)
         gi = hi@xi-gradient
 
         yi = yi + gi - gi_old
@@ -272,8 +326,8 @@ while i < iterations:
             zj = c*np.identity(n)
         #print(zj)
         #print("----")
-        
-        xj = (1-epsilon)*xj + epsilon*np.linalg.inv(zj)@yj # Newton-Raphson Consensus
+        p = backtracking(xj)
+        xj = (1-p)*xj + p*np.linalg.inv(zj)@yj # Newton-Raphson Consensus
         
         # For plotting the values...
         # N_list = np.append(N_list, xj[0][0])
@@ -285,8 +339,7 @@ while i < iterations:
         
         gj_old = gj
         hj_old = hj
-        gradient = calculateHessianAndGradient(xj)[0]
-        hj = calculateHessianAndGradient(xj)[1]
+        gradient, hj, cost_value = calculateHessianAndGradient(xj)
         gj = hj@xj-gradient
 
         yj = yj + gj - gj_old
@@ -299,7 +352,7 @@ while i < iterations:
     # ------Plotting------
 if i == iterations:   
 
-    figure, (ax1, ax2, ax3) = plt.subplots(1,3, figsize=(10, 8))
+    figure, (ax1, ax2, ax3, ax4) = plt.subplots(1,4, figsize=(10, 8))
     ax1.plot(np.arange(iterations), N_list, "b", label="N - node 1")
     ax1.plot(np.arange(iterations-1), N_list2, "c", label="N - node 2")
     
@@ -309,6 +362,7 @@ if i == iterations:
     ax3.plot(np.arange(iterations), m_list, "g", label="m - node 1")
     ax3.plot(np.arange(iterations-1), m_list2, "k", label="m - node 2")
     
+    ax4.plot(np.arange(iterations-1), function1_list, "k")
     ax1.grid()
     ax2.grid()
     ax3.grid()
@@ -327,6 +381,6 @@ if i == iterations:
     print(f"The last N values: \n N1 = {N_list[-1]} \n N2 = {N_list2[-1]}\n")
     print(f"The last M values: \n M1 = {M_list[-1]} \n M2 = {M_list2[-1]} \n")
     print(f"The last m values: \n m1 = {m_list[-1]} \n m2 = {m_list2[-1]}")
-    
+    print("last function value: ", function1_list[-1])
     plt.show()
 

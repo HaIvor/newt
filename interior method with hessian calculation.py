@@ -7,7 +7,7 @@ log = np.log
 xi = [0, 0]
 def calculateHessianAndGradient(xi):
     x1, x2 = sym.symbols('x1 x2')
-    function = t*(x1-x2)-sym.log(-(x1**2+x2**2-1))
+    function = t*(x1**2-x1+x2**2-4*x2-3)-(sym.log(-(x1**2+x2**2-1))   )
 
     der_x1 = function.diff(x1)
     der_x2 = function.diff(x2)
@@ -31,7 +31,7 @@ def calculateHessianAndGradient(xi):
     return gradient_values, hessian_values
 
 
-t = 1
+t = 0.1
 epsilon = 1e-5
 m = 1 # number of constraints 
 n = 2 #dimensions 
@@ -115,6 +115,6 @@ ax2.set_xlabel('iterations')
 ax1.set_title('$x_1$')
 ax2.set_title('$x_2$')
 
-figure.suptitle("Interior method + backtracking: $f(x_1,x_2) = x_1 - x_2$ \n $s.t. x_1^2 + x_2^2 -1 < 0$ ", fontsize=16)
+figure.suptitle("Interior method f(x1, x2) $ ", fontsize=16)
 
 plt.show()

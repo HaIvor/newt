@@ -4,8 +4,14 @@ import random
 import numpy as np 
 import numdifftools as nd
 import matplotlib.pyplot as plt
-import sympy as sym
 
+log = np.log # The natural logarithm
+log2 = np.log2 # Log base 2
+
+# x[2] = m, x[1] = M, x[0] = N, cost function definition from Emil paper
+def cost_function(x):
+    return -(log(x[2])+log(R_c)+log(B)+log(R_n)+log(x[0])+log(log2(x[1]))-log(x[2]*(1+p_c)*x[0]+B*(t_oh+t_d)))
+# Minus at the start for turning it into convex function instead of concave
 
 """
 The values we are actually optimizing: 
@@ -14,90 +20,33 @@ N = optimizable - Subcarriers
 M = optimizable - Modulation order
 m = optimizable - Symbols per packet
 """
-def calculateHessianAndGradient(xi):
-    R_c = 0.5 # Coding rate
-    B = 12000 # Bandwidth
-    n_x = 0.1 # Non-data subcarriers, Blir ikke brukt?
-    p_c = 0.25 # Cyclic prefix fraction
-    t_oh = 0.1 # Overhead (preamble, propagation...)
-    R_n = 0.5 # 0<R_n<1 andel av bærebølger 
+# Values used in the cost function
+R_c = 0.5 # Coding rate
+B = 12 # Bandwidth
+n_x = 0.1 # Non-data subcarriers, Blir ikke brukt?
+p_c = 0.25 # Cyclic prefix fraction
+t_oh = 0.1 # Overhead (preamble, propagation...)
+R_n = 0.5 # 0<R_n<1 andel av bærebølger 
 
-    r = 200 # r = 100-4000m -emil
-    c1 = 1500 # Speed of sound, 343 m/s
-    t_d = r/c1 # Transmission delay t_d = r/c
-
-    p_lt = 0.001
-    gamma = 100 # 20db
-    bb = 5
-    eta = 1
-
-    
-
-    x1, x2, x3 = sym.symbols('x1 x2 x3')
-
-    N = x1
-    m = x2
-    M = x3
-    # Federico constraints
-    t=1
-    constraint1 = 1 / bb * sym.log(-(1 - m)) + 1 / bb * sym.log(-(m - 40)) #  1 < m < 40
-    constraint2 = 1 / bb * sym.log(-(N - 2000)) + 1 / bb * sym.log(-(400 - N)) # 400 < N < 2000
-    constraint3 = 1 / bb * sym.log(-(2 - M)) + 1 / bb * sym.log(-(M - 64)) # 2 < M < 64
-    constraint4 = 1 / bb * sym.log(-((m * (N / eta) * (sym.log(M, 2)) * (0.2 * sym.exp(-((3 * 100) / (2 * (M - 1))))) ** (1 / R_c)) - 0.1))
-    constraint5 = sym.log(-(2-x2)) # M > 2.1
-    constraint6 = 1 / bb * sym.log(  -(sym.log(x2)+sym.log(R_n) + sym.log(x1) + sym.log(sym.log(x2,2)) + (1/R_c)*(sym.log(0.2)-(3*gamma)/(2*(x2-1))) - sym.log(p_lt) )  )
-    constraint_tull = sym.log(-(x3-70)) # m < 70
-    constraint_tull2 = sym.log(-(x2-64))# M < 64
-    constraint_tull3 = sym.log(-(x1-700)) # N < 700
-    #function = t*( -(sym.log(x3)+ sym.log(R_c) + sym.log(B) + sym.log(R_n) + sym.log(x1) + sym.log(sym.log(x2, 2)) - sym.log(x3*(1+p_c)*x1 + B*(t_oh + t_d))))
-    function = 5*x1**2- 2*x1 + 3*x2**2 - 5*x2 + 8*x3**2 - 6*x3 
-
-    der_x1 = function.diff(x1)
-    der_x2 = function.diff(x2)
-    der_x3 = function.diff(x3)
-
-    der_x1_values = function.diff(x1).evalf(subs={x1: xi[0][0], x2: xi[1][0], x3: xi[2][0]})
-    der_x2_values = function.diff(x2).evalf(subs={x1: xi[0][0], x2: xi[1][0], x3: xi[2][0]})
-    der_x3_values = function.diff(x3).evalf(subs={x1: xi[0][0], x2: xi[1][0], x3: xi[2][0]})
-
-    gradient_values = np.array([
-        [der_x1_values], 
-        [der_x2_values], 
-        [der_x3_values]
-    ], dtype=np.float32)
-
-    der_x1x1_values = der_x1.diff(x1).evalf(subs={x1: xi[0][0], x2: xi[1][0], x3: xi[2][0]})
-    der_crossx1x2_values = der_x1.diff(x2).evalf(subs={x1: xi[0][0], x2: xi[1][0], x3: xi[2][0]})
-    der_x2x2_values = der_x2.diff(x2).evalf(subs={x1: xi[0][0], x2: xi[1][0], x3: xi[2][0]})
-    der_crossx1x3_values = der_x1.diff(x3).evalf(subs={x1: xi[0][0], x2: xi[1][0], x3: xi[2][0]})
-    der_x3x3_values = der_x3.diff(x3).evalf(subs={x1: xi[0][0], x2: xi[1][0], x3: xi[2][0]})
-    der_crossx2x3_values = der_x2.diff(x3).evalf(subs={x1: xi[0][0], x2: xi[1][0], x3: xi[2][0]})
-
-    hessian_values = np.array([
-        [der_x1x1_values, der_crossx1x2_values, der_crossx1x3_values],
-        [der_crossx1x2_values, der_x2x2_values, der_crossx2x3_values],
-        [der_crossx1x3_values, der_crossx2x3_values, der_x3x3_values]
-    ], dtype=np.float32)
-
-    
-    
-    return gradient_values, hessian_values
+r = 200 # r = 100-4000m -emil
+c1 = 1500 # Speed of sound, 343 m/s
+t_d = r/c1 # Transmission delay t_d = r/c
 
 n = 3 # dimension of hessian / gradient. ex. 3x3 and 3x1
 
 out_neigh = 1 # For the time being this is not calculated, but set beforehand
 c = 1E-8
-epsilon = 1 # just to give value temporary
+epsilon = 0.01 # just to give value temporary
 
 # ------Initialization------
 
 
 # Initial estimate for the global optimization. Arbitrary values, recommended by Emil
-xi = np.array([
-    [14],
-    [20],
-    [9]
-])
+xi = np.array([ 
+    [152], # N_start
+    [20], #M_start
+    [9] # m_start
+]) 
 
 yi, gi, gi_old = np.zeros((n, 1)), np.zeros((n, 1)), np.zeros((n, 1)) # if n=3 -> they are 3x1 zero matrices
 zi, hi, hi_old = np.identity(n), np.identity(n), np.identity(n) # if n=3 -> they are 3x3 identity matrices
@@ -114,8 +63,8 @@ rhoi_z = np.zeros((n,n))
 # ------Initialization 2------
 
 xj = np.array([ 
-    [32], # N_start
-    [13], #M_start
+    [100], # N_start
+    [40], #M_start
     [20] # m_start
 ]) 
 
@@ -144,7 +93,7 @@ M_list2 = np.array(xj[1])
 m_list2 = np.array(xj[2])
 
 i = 1
-iterations = 20 # For plotting the evolution of xi (N, M, m)
+iterations = 900 # For plotting the evolution of xi (N, M, m)
 while i < iterations: 
     
 # ------Data transmission-------
@@ -155,11 +104,9 @@ while i < iterations:
         # Push sum consensus
         yi = (1/(out_neigh + 1))*yi
         zi = (1/(out_neigh + 1))*zi
-        print("yi ", yi)
-        print("zi ", zi)
         # The sigmas are broadcasted to the neighbors 
-        sigmai_y = sigmai_y + yi
-        sigmai_z = sigmai_z + zi
+        sigmai_y = np.float16(sigmai_y + yi)
+        sigmai_z = np.float16(sigmai_z + zi)
         #pseudo code: Broadcast: transmitter_node_ID, sigma_y[i], sigma_z[i].
         # Have to set up with modem. Subnero stuff...
         flag_reception, flag_update, flag_transmission, flag_update2, flag_reception2, flag_transmission2 = 0, 0, 0, 0, 0, 0
@@ -196,11 +143,13 @@ while i < iterations:
 
     if flag_update == 1:
 
-        # if (np.abs(np.linalg.eigvals(zi)) < c).all():
-        #     zi = c*np.identity(n)
+        if (np.abs(np.linalg.eigvals(zi)) < c).all():
+            zi = c*np.identity(n)
 
         xi = (1-epsilon)*xi + epsilon*np.linalg.inv(zi)@yi # Newton-Raphson Consensus
-
+        print("zi: ", zi)
+        print("yi, ", yi)
+        print("----")
         # For plotting the values...
         N_list = np.append(N_list, xi[0][0])
         M_list = np.append(M_list, xi[1][0])
@@ -209,9 +158,9 @@ while i < iterations:
 
         gi_old = gi
         hi_old = hi
-        gradient = calculateHessianAndGradient(xi)[0]
-        hi = calculateHessianAndGradient(xi)[1]
-        gi = hi@xi-gradient
+        hi = nd.Hessian(cost_function)(xi.reshape((3,))) # numtools calc hessian
+        gradient = nd.Gradient(cost_function)(xi) # numtools calc gradient
+        gi = hi@xi-gradient.reshape((3,1))
 
         yi = yi + gi - gi_old
         zi = zi + hi - hi_old
@@ -226,7 +175,6 @@ while i < iterations:
         flag_transmission = 1
 
         i += 1 # For plotting and simulating
-        print("iteration: ", i)
         #print(rhoj_y-sigmai_y)
         
         
@@ -245,8 +193,8 @@ while i < iterations:
         yj = (1/(out_neigh + 1))*yj
         zj = (1/(out_neigh + 1))*zj
         # The sigmas are broadcasted to the neighbors 
-        sigmaj_y = sigmaj_y + yj
-        sigmaj_z = sigmaj_z + zj
+        sigmaj_y = np.float16(sigmaj_y + yj)
+        sigmaj_z = np.float16(sigmaj_z + zj)
         #pseudo code: Broadcast: transmitter_node_ID, sigma_y[i], sigma_z[i].
         # Have to set up with modem. Subnero stuff...
         flag_reception, flag_update, flag_transmission, flag_update2, flag_reception2, flag_transmission2 = 0, 0, 0, 0, 0, 0
@@ -285,9 +233,9 @@ while i < iterations:
         
         gj_old = gj
         hj_old = hj
-        gradient = calculateHessianAndGradient(xj)[0]
-        hj = calculateHessianAndGradient(xj)[1]
-        gj = hj@xj-gradient
+        hj = nd.Hessian(cost_function)(xj.reshape((3,))) # numtools calc hessian
+        gradient = nd.Gradient(cost_function)(xj) # numtools calc gradient
+        gj = hj@xj-gradient.reshape((3,1))
 
         yj = yj + gj - gj_old
         zj = zj + hj - hj_old

@@ -4,10 +4,26 @@ import matplotlib.pyplot as plt
 import sympy as sym
 log = np.log
 
-xi = [0, 0, 0]
+
+m = 3 # number of constraints 
+xi = [500, 4, 5]
 def calculateHessianAndGradient(xi):
+    R_c = 0.5 # Coding rate
+    B = 12 # Bandwidth
+    n_x = 0.1 # Non-data subcarriers, Blir ikke brukt?
+    p_c = 0.25 # Cyclic prefix fraction
+    t_oh = 0.1 # Overhead (preamble, propagation...)
+    R_n = 0.5 # 0<R_n<1 andel av bærebølger 
+
+    r = 200 # r = 100-4000m -emil
+    c1 = 1500 # Speed of sound, 343 m/s
+    t_d = r/c1 # Transmission delay t_d = r/c
+
+    p_lt = 0.001
+    gamma = 31.62
+
     x1, x2, x3 = sym.symbols('x1 x2 x3')
-    function = t*(x1**2-x1+x2**2-4*x2-3 + x3**2-9*x3)-(sym.log(-(x1**2+x2**2+x3**2-2))   )
+    function = t*( -(sym.log(x3)+ sym.log(R_c) + sym.log(B) + sym.log(R_n) + sym.log(x1) + sym.log(sym.log(x2, 2)) - sym.log(x3*(1+p_c)*x1 + B*(t_oh + t_d))    )  )- (  sym.log(-(x2-64)) + sym.log(-(x3-4*B/(x1*(1+p_c)))) + sym.log(  sym.log(x3)+sym.log(x1)+sym.log(R_n)+sym.log(sym.log(x2, 2)) + (1/R_c)*(sym.log(0.2)-(3*gamma)/(2*(x2-1))) - sym.log(p_lt)    ) + sym.log(x1-600)    )
 
     der_x1 = function.diff(x1)
     der_x2 = function.diff(x2)
@@ -37,9 +53,9 @@ def calculateHessianAndGradient(xi):
     return gradient_values, hessian_values
 
 
-t = 0.01
+t = 0.1
 epsilon = 1e-5
-m = 1 # number of constraints 
+
 n = 3 #dimensions 
 i = 1
 nu = 0.01

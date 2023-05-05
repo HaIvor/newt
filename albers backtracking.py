@@ -32,6 +32,8 @@ nu = 0.01
 x1_list = np.array(xi[0])
 x2_list = np.array(xi[1])
 iteration = 1
+alpha = 0.01
+beta = 0.5
 # a, b, c loop 
 while (m/t) > epsilon:
     print("main loop i: ", i)
@@ -49,14 +51,15 @@ while (m/t) > epsilon:
         xi_old = xi
         print("\n newton loop j:", j)
         hessian = H(xi, t) 
-        print(hessian)
         gradient = g(xi, t)
-        print(gradient)
-        print(type(gradient))
-        print(gradient.shape)
-        print("llooolol")
         d = -np.linalg.inv(hessian)@gradient
-        xi = xi + d
+        p=1
+        #backtracking 
+        while cost_function(xi + p*d) > cost_function(xi)+alpha*p*np.transpose(gradient)@d:
+            p = beta*p
+            print("new p: ", p)
+        
+        xi = xi + p*d
         x1_list = np.append(x1_list, xi[0])
         x2_list = np.append(x2_list, xi[1])
         iteration += 1
@@ -99,6 +102,6 @@ ax2.set_xlabel('iterations')
 ax1.set_title('$x_1$')
 ax2.set_title('$x_2$')
 
-figure.suptitle("Interior method: $f(x_1,x_2) = x_1 + x_2$ \n $s.t. x_1^2 + x_2^2 -1 < 0$ ", fontsize=16)
+figure.suptitle("Interior method + backtracking: $f(x_1,x_2) = x_1 + x_2$ \n $s.t. x_1^2 + x_2^2 -1 < 0$ ", fontsize=16)
 
 plt.show()

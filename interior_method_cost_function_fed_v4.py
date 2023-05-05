@@ -14,7 +14,7 @@ alpha = 0.01
 beta = 0.5
 
 xi = np.array([
-    [500],
+    [512],
     [4],
     [5]
 ])
@@ -26,12 +26,12 @@ def calculateHessianAndGradient(xi):
     t_oh = 0.1 # Overhead (preamble, propagation...)
     R_n = 0.5 # 0<R_n<1 andel av bærebølger 
 
-    r = 200 # r = 100-4000m -emil
+    r = 1000 # r = 100-4000m -emil
     c1 = 1500 # Speed of sound, 343 m/s
     t_d = r/c1 # Transmission delay t_d = r/c
 
     p_lt = 0.001
-    gamma = 100 # 20db
+    gamma = 31.62 # 20db
     bb = 5
     eta = 1
 
@@ -49,11 +49,12 @@ def calculateHessianAndGradient(xi):
     constraint4 = 1 / bb * sym.log(-((m * (N / eta) * (sym.log(M, 2)) * (0.2 * sym.exp(-((3 * 100) / (2 * (M - 1))))) ** (1 / R_c)) - 0.1))
     constraint5 = sym.log(-(2-x2)) # M > 2.1
     constraint6 = 1 / bb * sym.log(  -(sym.log(x2)+sym.log(R_n) + sym.log(x1) + sym.log(sym.log(x2,2)) + (1/R_c)*(sym.log(0.2)-(3*gamma)/(2*(x2-1))) - sym.log(p_lt) )  )
+    constraint7 = 1 / bb * sym.log(-(x3-(4*B)/(x1*(1+p_c))))
     constraint_tull = sym.log(-(x3-70)) # m < 70
     constraint_tull2 = sym.log(-(x2-64))# M < 64
     constraint_tull3 = sym.log(-(x1-700)) # N < 700
     function_without_constraint = -(sym.log(x3)+ sym.log(R_c) + sym.log(B) + sym.log(R_n) + sym.log(x1) + sym.log(sym.log(x2, 2)) - sym.log(x3*(1+p_c)*x1 + B*(t_oh + t_d)))
-    function = t*( function_without_constraint ) - (constraint1+constraint2+constraint3+constraint4) 
+    function = ( function_without_constraint ) - (constraint1+constraint2+constraint3+constraint4+constraint6) 
     
     der_x1 = function.diff(x1)
     der_x2 = function.diff(x2)
@@ -97,8 +98,8 @@ def calculateHessianAndGradient(xi):
 
 
 
-t = 0.1
-epsilon = 1e-3
+bb = 1 # could be different
+epsilon = 1e-5
 
 n = 3 #dimensions 
 i = 1
@@ -110,7 +111,7 @@ function_list = np.array([])
 iteration = 1
 
 # a, b, c loop 
-while (m1/t) > epsilon:
+while (m1/bb) > epsilon:
     print("main loop i: ", i)
 
     
@@ -152,11 +153,11 @@ while (m1/t) > epsilon:
     #xi = xi # ? 
 
     #c - update t 
-    t = 2*t
+    bb = 2*bb
 
 
     
-    print("t :", t)
+    print("bb :", bb)
     i+=1
 print(xi_old)
 print("====DONE MAIN!====")   
@@ -190,5 +191,6 @@ ax4.set_title("function")
 
 
 figure.suptitle("Interior method f(x1, x2, x3) + backtracking (centralized)", fontsize=16)
-print("Programmet tok %s seconds!" % (time.time() - start_time))
+print("cost functionen blir da: ", function_list[-1])
+print("Programmet tok %s sekunder!" % (time.time() - start_time))
 plt.show()
