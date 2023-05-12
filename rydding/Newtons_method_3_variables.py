@@ -4,18 +4,19 @@ import numdifftools as nd
 import matplotlib.pyplot as plt
 import sympy as sym
 
-epsilon = 0.1
+epsilon = 0.2
 
 def calculateHessianAndGradient(xi):
 
+    #Defining 3 variables
     x1, x2, x3 = sym.symbols('x1 x2 x3')
 
     # Defining the objective function we want to minimize
-    # This example, arbitrary function with one constraint x1^2+x2^2+x3^2 < 2. 
     function = x1**2-500*x1+x2**2-30*x2+5*x3**2-60*x3
 
-    #function value
+    #Defining the function value at xi
     function_value = function.evalf(subs={x1: xi[0][0], x2: xi[1][0], x3: xi[2][0]}) 
+
     # Derivating f(x) for x1, x2, x3 (algebraic answer, without values)
     der_x1 = function.diff(x1)
     der_x2 = function.diff(x2)
@@ -26,14 +27,14 @@ def calculateHessianAndGradient(xi):
     der_x2_values = function.diff(x2).evalf(subs={x1: xi[0][0], x2: xi[1][0], x3: xi[2][0]})
     der_x3_values = function.diff(x3).evalf(subs={x1: xi[0][0], x2: xi[1][0], x3: xi[2][0]})
 
-    # Putting the derivatives together in a matrix so we get the gradient of the objective function
+    # Putting the derivatives together in a matrix so we get the gradient of the objective function (3x1 matrix)
     gradient_values = np.array([
         [der_x1_values],
         [der_x2_values],
         [der_x3_values]
     ], dtype=np.float32)
 
-    # Derivating the objective function further to get the hessian
+    # Derivating the objective function further to get the hessian (3x3 matrix)
     der_x1x1_values = der_x1.diff(x1).evalf(subs={x1: xi[0][0], x2: xi[1][0], x3: xi[2][0]})
     der_crossx1x2_values = der_x1.diff(x2).evalf(subs={x1: xi[0][0], x2: xi[1][0], x3: xi[2][0]})
     der_x2x2_values = der_x2.diff(x2).evalf(subs={x1: xi[0][0], x2: xi[1][0], x3: xi[2][0]})
@@ -50,34 +51,39 @@ def calculateHessianAndGradient(xi):
     
     return gradient_values, hessian_values, function_value
 
-
+# Starting values
 xi = np.array([ 
-    [10], # N_start
-    [20], #M_start
-    [70] # m_start
+    [10], # x1 start
+    [20], # x2 start 
+    [70] # x3 start
 ]) 
-N_list = np.array(xi[0])
-M_list = np.array(xi[1])
-m_list = np.array(xi[2])
 
-i = 1
-c = 1E-6
-
+# For plotting 
+x1_list = np.array(xi[0])
+x2_list = np.array(xi[1])
+x3_list = np.array(xi[2])
 cost_list = np.array([])
+
+# If the hessian misbehaves 
+c = 1E-6 
+
+# A value of how accurate one wants the end result to be. A smaller value = bigger precision 
 accuracy = 1e-5
 
 iterations = 1
 lamba_2 = 1
 
-# Stopping criterion -> "The Newton decrement"^2 / 2 > accuracy value
+# The stopping criterion has something to do with the Newton decrement. More information: "Convex Optimization", Stephen Boyd & Lieven Vandenberghe. p. 486
 while (lamba_2/2) > accuracy:
 
     gradient, hi, function_value = calculateHessianAndGradient(xi)
 
+    # the Newton decrement squared = lamba**2 = lambda_2
     lamba_2 = np.transpose(gradient)@np.linalg.inv(hi)@gradient
 
+    # In order to increase the basin of attraction and the robustness of the algorithm, it is suitable to force: hessian >= c*(identity matrix)
     if (np.abs(np.linalg.eigvals(hi)) < c).all():
-            hi = c*np.identity(3) # If hessian too small -> estimate hessian as identity matrix with variable c in.
+            hi = c*np.identity(3) 
 
     print("hi: \n", hi)
     print("gradient: \n", gradient)
@@ -86,25 +92,25 @@ while (lamba_2/2) > accuracy:
     xi = (1-epsilon)*xi+epsilon*(np.linalg.inv(hi))@(hi@xi-gradient)
 
     # For plotting
-    N_list = np.append(N_list, xi[0][0])
-    M_list = np.append(M_list, xi[1][0])
-    m_list = np.append(m_list, xi[2][0])
+    x1_list = np.append(x1_list, xi[0][0])
+    x2_list = np.append(x2_list, xi[1][0])
+    x3_list = np.append(x3_list, xi[2][0])
     cost_list = np.append(cost_list, function_value)
+
     iterations = iterations + 1
 
-print("xi is then in the end: \n xi=[N,M,m] \n", xi)
-print("cost functionen is: \n", function_value)
+print("=====DONE NR=====")
+
+print("\n xi is then in the end: \n", xi)
+print("\n cost function is: \n", function_value)
 
 figure, (ax1, ax2, ax3, ax4) = plt.subplots(1,4, figsize=(14, 8))
-ax1.plot(np.arange(iterations), N_list, "g")
 
-ax2.plot(np.arange(iterations), M_list, "r")
-
-ax3.plot(np.arange(iterations), m_list, "b")
-
+ax1.plot(np.arange(iterations), x1_list, "g")
+ax2.plot(np.arange(iterations), x2_list, "r")
+ax3.plot(np.arange(iterations), x2_list, "b")
 ax4.plot(np.arange(iterations-1), cost_list, "k")
 
-#plt.legend(["M"])
 ax1.grid()
 ax2.grid()
 ax3.grid()
@@ -117,11 +123,9 @@ ax4.set_xlabel('Iteration')
 
 figure.suptitle("Newton's Method for: \n $x^2 - 500x + y^2 - 30y + 5z^2 - 60z$", fontsize=16)
 
-ax1.set_title('$x$')
-ax2.set_title('$y$')
-ax3.set_title('$z$')
+ax1.set_title('$x_1$')
+ax2.set_title('$x_2$')
+ax3.set_title('$x_3$')
 ax4.set_title("Function value")
 
-#plt.xticks(np.arange(iterations))
 plt.show()
-#print(M_list)
