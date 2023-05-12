@@ -5,6 +5,8 @@ import sympy as sym
 import time
 import sys
 start_time = time.time()
+
+# Starting values
 xi = np.array([
     [0.4],
     [0.2],
@@ -13,13 +15,14 @@ xi = np.array([
 
 def calculateHessianAndGradient(xi):
 
+    #Defining 3 variables
     x1, x2, x3 = sym.symbols('x1 x2 x3')
 
-    # Defining the objective function we want to minimize
-    # This example, arbitrary function with one constraint x1^2+x2^2+x3^2 < 2. 
+    # Defining the objective function we want to minimize, with barrier method parameter t
+    # This example, arbitrary function with one constraint "x1^2 + x2^2 + x3^2 < 2"
     function = (x1**2-x1+x2**2-4*x2-3 + x3**2-9*x3)-(1/t)*(sym.log(-(x1**2+x2**2+x3**2-2)))
 
-    # Another example with 3 constraints
+    # Another example with 3 constraints (uncomment to see).
     #function = (x1*sym.log(x1)+x2*sym.log(x2)+x3*sym.log(x3))-(1/t)*(sym.log(-(-x1)) + sym.log(-(-x2)) + sym.log(-(-x3)) )
 
 
@@ -66,16 +69,26 @@ def calculateHessianAndGradient(xi):
     
     return gradient_values, hessian_values, function_value
 
+# starting value t. Note this can start larger if the intial guess is close to the optimal point.
+t = 0.1
 
-t = 0.1 # starting value t
-accuracy = 1e-5 # How exact one wants the end result to be (lower epsilon => more exact)
-m = 1 # number of constraints 
-i = 1 # main loop iteration start
-x1_list = np.array(xi[0]) # Used for plotting
-x2_list = np.array(xi[1]) # Used for plotting
-x3_list = np.array(xi[2]) # Used for plotting
-epsilon = 1 # Step size
-NR_iteration = 1 # All the Newton's method interations, used for plotting x-axis
+# How exact one wants the end result to be (lower epsilon => more exact)
+accuracy = 1e-5 
+
+# number of constraints
+m = 1  
+
+# For plotting
+x1_list = np.array(xi[0])
+x2_list = np.array(xi[1]) 
+x3_list = np.array(xi[2]) 
+i = 1 
+
+# Step size. How big of a step newton's method takes. 0 < episilon < 1
+epsilon = 0.4
+
+# All the Newton's method interations, used for plotting x-axis
+NR_iteration = 1 
 
 # Outer loop
 while (m/t) > accuracy:
